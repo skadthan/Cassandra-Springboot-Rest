@@ -1,0 +1,70 @@
+version: '3.3'
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper:3.4.6
+    ports:
+    - "2182:2182"
+  kafka:
+    image: wurstmeister/kafka:0.10.1.1
+    ports:
+    - 9092
+    environment:
+      HOSTNAME_COMMAND: 192.168.1.153 #"ifconfig | awk '/Bcast:.+/{print $2}' | awk -F\":\" '{print $2}'"
+      KAFKA_ADVERTISED_PORT: 9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+  cassandra-seed:
+    image: trigger-cassandra
+    # Exposing ports for inter cluste communication
+    networks:
+    - dc1ring
+    ports:
+    - 7000
+    - 7001
+    - 7199
+    - 9042
+    - 9160
+    volumes:
+    - ./n1data:/var/lib/cassandra
+    environment:
+      CASSANDRA_CLUSTER_NAME: test-cluster
+      CASSANDRA_SEEDS: cassandra-seed
+    ulimits:
+      memlock: -1
+      nproc: 32768
+      nofile: 100000
+  cassandra:
+    image: trigger-cassandra
+
+    networks:
+    - dc1ring
+    ports:
+    - 7000
+    - 7001
+    - 7199
+    - 9042
+    - 9160
+    volumes:
+    - ./n1data:/var/lib/cassandra
+    environment:
+      CASSANDRA_CLUSTER_NAME: test-cluster
+      CASSANDRA_SEEDS: cassandra-seed
+    depends_on:
+    - cassandra-seed
+    ulimits:
+      memlock: -1
+      nproc: 32768
+      nofile: 100000
+  portainer:
+        image: portainer/portainer
+        command: --templates http://templates/templates.json
+        networks:
+            - dc1ring
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ./portainer-data:/data
+        # Enable you to access potainers web interface from your host machine
+        # using http://localhost:10001
+        ports:
+            - "10001:9000"
+networks:
+    dc1ring:
